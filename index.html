@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library.io - Fully Categorized</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+
+    <div id="app" class="dark">
+        <div class="min-h-screen text-slate-900 dark:text-slate-100 p-4 md:p-12">
+            <div class="max-w-5xl mx-auto">
+                
+                <header class="mb-12">
+                    <h1 class="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-cyan-500 dark:from-indigo-400 dark:to-cyan-400 bg-clip-text text-transparent">
+                        Library.io
+                    </h1>
+                    <p class="text-slate-600 dark:text-slate-400 mt-2">Grouped by format and genre.</p>
+                    
+                    <form id="add-book-form" class="mt-8 flex flex-col md:flex-row gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg">
+                        <input type="file" id="file-input" accept=".pdf,.epub" class="hidden">
+                        <label for="file-input" class="cursor-pointer bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                            <i data-lucide="upload" class="w-4 h-4"></i>
+                            <span id="file-label" class="whitespace-nowrap">Select File</span>
+                        </label>
+                        <input type="text" id="genre-input" placeholder="Genre (e.g. Fiction, Tech)" class="bg-transparent px-4 py-2 outline-none w-full md:w-64 placeholder:text-slate-500">
+                        <button type="submit" class="bg-indigo-600 px-6 py-2 rounded-xl hover:bg-indigo-500 text-white transition-colors">
+                            Add Book
+                        </button>
+                    </form>
+                </header>
+
+                <div id="library-container" class="space-y-12">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let books = [];
+        const fileInput = document.getElementById('file-input');
+        const fileLabel = document.getElementById('file-label');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) fileLabel.textContent = e.target.files[0].name.slice(0, 10) + '...';
+        });
+
+        function renderBooks() {
+            const container = document.getElementById('library-container');
+            container.innerHTML = ''; // Clear container
+
+            // Group by format
+            const formats = [
+                { id: 'pdf', title: 'PDFs', icon: 'file-text' },
+                { id: 'epub', title: 'EPubs', icon: 'book' }
+            ];
+
+            formats.forEach(format => {
+                const filteredByFormat = books.filter(b => 
+                    format.id === 'pdf' ? b.type.includes('pdf') : !b.type.includes('pdf')
+                );
+
+                if (filteredByFormat.length > 0) {
+                    const section = document.createElement('section');
+                    section.innerHTML = `<h2 class="text-2xl font-bold mb-6 flex items-center gap-2"><i data-lucide="${format.icon}"></i> ${format.title}</h2>`;
+                    
+                    // Group by Genre within format
+                    const genres = [...new Set(filteredByFormat.map(b => b.genre))];
+                    
+                    genres.forEach(genre => {
+                        const booksInGenre = filteredByFormat.filter(b => b.genre === genre);
+                        const genreDiv = document.createElement('div');
+                        genreDiv.className = 'mb-8';
+                        genreDiv.innerHTML = `
+                            <h3 class="text-sm uppercase tracking-widest text-indigo-500 font-bold mb-4">${genre}</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                ${booksInGenre.map(book => bookTemplate(book)).join('')}
+                            </div>
+                        `;
+                        section.appendChild(genreDiv);
+                    });
+                    
+                    container.appendChild(section);
+                }
+            });
+
+            if (books.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-center py-20">Your library is empty. Start by uploading a book!</p>';
+            }
+            lucide.createIcons();
+        }
+
+        function bookTemplate(book) {
+            return `
+                <div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm transition-all hover:border-indigo-500/50">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="p-3 rounded-2xl ${book.type.includes('pdf') ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}">
+                            <i data-lucide="${book.type.includes('pdf') ? 'file-text' : 'book'}" class="w-6 h-6"></i>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.open('${book.url}', '_blank')" class="p-2 text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="removeBook(${book.id})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <h3 class="font-semibold text-lg truncate">${book.title}</h3>
+                    <p class="text-sm text-slate-500">${(book.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+            `;
+        }
+
+        document.getElementById('add-book-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const file = fileInput.files[0];
+            const genreInput = document.getElementById('genre-input');
+            
+            if (!file) return alert("Select a file first.");
+
+            books.push({
+                id: Date.now(),
+                title: file.name,
+                type: file.type,
+                size: file.size,
+                genre: genreInput.value.trim() || 'General',
+                url: URL.createObjectURL(file)
+            });
+
+            fileInput.value = '';
+            genreInput.value = '';
+            fileLabel.textContent = 'Select File';
+            renderBooks();
+        });
+
+        function removeBook(id) {
+            books = books.filter(b => b.id !== id);
+            renderBooks();
+        }
+
+        renderBooks();
+    </script>
+</body>
+</html>
